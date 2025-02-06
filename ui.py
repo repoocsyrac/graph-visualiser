@@ -1,21 +1,42 @@
 import tkinter as tk
 import networkx as nx
+from algorithms import dijkstra
 
 class GraphApp:
     def __init__(self, root):
         self.root = root
-        self.canvas = tk.Canvas(root, width=800, height=500, bg="linen")
+        self.canvas = tk.Canvas(root, width=800, height=500, bg="NavajoWhite")
         self.canvas.pack()
 
         self.graph = nx.Graph()
         self.nodes = {}
         self.edges = []
+
+        self.selected_nodes = []  # Store start & target nodes
+        self.selecting_nodes = False  # Toggle selection mode
         
-        self.canvas.bind("<Button-1>", self.add_node)
+        self.canvas.bind("<Button-1>", self.left_click)
         self.canvas.bind("<Button-3>", self.add_edge)
+
+        # Algorithm buttons
+        self.control_frame = tk.Frame(root, width=800, height=100, bg="NavajoWhite3")
+        self.control_frame.pack(side=tk.BOTTOM, fill="both", expand=True)
+        self.select_nodes_button = tk.Button(self.control_frame, text="Run Dijkstra", command=self.toggle_select_mode)
+        self.select_nodes_button.pack(side=tk.LEFT)
+        self.dijkstra_button = tk.Button(self.control_frame, text="-", command=self.run_dijkstra)
+        self.dijkstra_button.pack(side=tk.LEFT)
+
+    def left_click(self, event):
+        if self.selecting_nodes:
+            self.select_node(event)
+        else:
+            self.add_node(event)
 
     # Add node where left mouse is pressed
     def add_node(self, event):
+        if self.selecting_nodes:
+            return
+        
         node_id = len(self.nodes) + 1
         self.nodes[node_id] = (event.x, event.y)
         self.graph.add_node(node_id)
@@ -50,6 +71,62 @@ class GraphApp:
 
         # Reset the selected node
         self.selected_node = None
+
+    
+
+    # Runs Dijkstra's and highlights shortest path
+    def run_dijkstra(self):
+        if len(self.selected_nodes) != 2:
+            print("You must select two nodes first.")
+            return
+
+        start_node, target_node = self.selected_nodes
+        path, distance = dijkstra(self.graph, start_node, target_node)
+
+        if not path:
+            print(f"No path found from {start_node} to {target_node}")
+            return
+
+        print(f"Shortest path from {start_node} to {target_node}: {path} (Distance: {distance})")
+
+        # Highlight shortest path
+        for i in range(len(path) - 1):
+            node1, node2 = path[i], path[i+1]
+            x1, y1 = self.nodes[node1]
+            x2, y2 = self.nodes[node2]
+            self.canvas.create_line(x1, y1, x2, y2, fill="SpringGreen2", width=3)
+        
+        self.selected_nodes = []
+
+
+    # Toggles node selection mode for dijkstras
+    def toggle_select_mode(self):
+        self.selecting_nodes = not self.selecting_nodes
+
+        if self.selecting_nodes:
+            self.select_nodes_button.config(text="Selecting... (Click 2 Nodes)")
+        else:
+            self.select_nodes_button.config(text="Run Dijkstra")
+
+        self.selected_nodes = []
+
+    # Selects a start and target node when in selection mode
+    def select_node(self, event):
+        if not self.selecting_nodes:
+            return
+
+        for node_id, (x, y) in self.nodes.items():
+            if abs(event.x - x) < 15 and abs(event.y - y) < 15:
+                if node_id not in self.selected_nodes:
+                    self.selected_nodes.append(node_id)
+                    self.canvas.itemconfig(f"node{node_id}", fill="cyan")  # Highlight 
+
+                if len(self.selected_nodes) == 2:
+                    self.run_dijkstra()
+                    self.selecting_nodes = False
+                    self.select_nodes_button.config(text="Run Dijkstra")
+                break
+
 
 
     
