@@ -26,6 +26,16 @@ class GraphApp:
         self.dijkstra_button = tk.Button(self.control_frame, text="-", command=self.run_dijkstra)
         self.dijkstra_button.pack(side=tk.LEFT)
 
+        # Reset buttons
+        self.unhighlight_button = tk.Button(self.control_frame, text="Unhighlight Path", command=self.unhighlight_path)
+        self.unhighlight_button.pack(side=tk.RIGHT)
+
+        self.clear_edges_button = tk.Button(self.control_frame, text="Delete All Edges", command=self.clear_edges)
+        self.clear_edges_button.pack(side=tk.RIGHT)
+
+        self.clear_all_button = tk.Button(self.control_frame, text="Delete All Nodes & Edges", command=self.clear_all)
+        self.clear_all_button.pack(side=tk.RIGHT)
+
     def left_click(self, event):
         if self.selecting_nodes:
             self.select_node(event)
@@ -67,7 +77,7 @@ class GraphApp:
             # Draw the edge
             x1, y1 = self.nodes[self.selected_node]
             x2, y2 = self.nodes[clicked_node]
-            self.canvas.create_line(x1, y1, x2, y2, fill="red4")
+            self.canvas.create_line(x1, y1, x2, y2, fill="red4", tags="edge")
 
         # Reset the selected node
         self.selected_node = None
@@ -94,7 +104,7 @@ class GraphApp:
             node1, node2 = path[i], path[i+1]
             x1, y1 = self.nodes[node1]
             x2, y2 = self.nodes[node2]
-            self.canvas.create_line(x1, y1, x2, y2, fill="SpringGreen2", width=3)
+            self.canvas.create_line(x1, y1, x2, y2, fill="SpringGreen2", width=3, tags="highlight")
         
         self.selected_nodes = []
 
@@ -126,6 +136,26 @@ class GraphApp:
                     self.selecting_nodes = False
                     self.select_nodes_button.config(text="Run Dijkstra")
                 break
+
+    # Unhighlights path
+    def unhighlight_path(self):
+        self.canvas.delete("highlight")
+        self.selected_nodes = []
+        for node_id in self.nodes:
+            self.canvas.itemconfig(f"node{node_id}", fill="medium blue")  # Change back to default
+
+
+    # Removes all edges from graph
+    def clear_edges(self):
+        self.canvas.delete("edge")
+        self.edges = [] 
+        self.graph.clear_edges()
+
+    def clear_all(self):
+        self.canvas.delete("all") 
+        self.nodes = {}
+        self.edges = []
+        self.graph.clear()
 
 
 
