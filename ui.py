@@ -1,6 +1,7 @@
 import tkinter as tk
 import networkx as nx
 from algorithms import dijkstra
+import time
 
 class GraphApp:
     def __init__(self, root):
@@ -14,17 +15,31 @@ class GraphApp:
 
         self.selected_nodes = []  # Store start & target nodes
         self.selecting_nodes = False  # Toggle selection mode
+
+        # Initialize dragging attributes
+        self.is_dragging = False  
+        self.dragging_node = None  
+        self.start_x = 0  
+        self.start_y = 0  
+        self.drag_start_time = 0  
         
         self.canvas.bind("<Button-1>", self.left_click)
         self.canvas.bind("<Button-3>", self.add_edge)
+        self.canvas.bind("<B1-Motion>", self.handle_drag)
 
         # Algorithm buttons
         self.control_frame = tk.Frame(root, width=800, height=100, bg="NavajoWhite3")
         self.control_frame.pack(side=tk.BOTTOM, fill="both", expand=True)
         self.select_nodes_button = tk.Button(self.control_frame, text="Run Dijkstra", command=self.toggle_select_mode)
         self.select_nodes_button.pack(side=tk.LEFT)
-        self.dijkstra_button = tk.Button(self.control_frame, text="-", command=self.run_dijkstra)
-        self.dijkstra_button.pack(side=tk.LEFT)
+        self.mst_button = tk.Button(self.control_frame, text="Find Minimum Spanning Tree")
+        self.mst_button.pack(side=tk.LEFT)
+        self.euler_button = tk.Button(self.control_frame, text="Find Euler Tour")
+        self.euler_button.pack(side=tk.LEFT)
+        self.hamilton_button = tk.Button(self.control_frame, text="Find Hamilton Cycle")
+        self.hamilton_button.pack(side=tk.LEFT)
+        self.colouring_button = tk.Button(self.control_frame, text="Find Proper Colouring")
+        self.colouring_button.pack(side=tk.LEFT)
 
         # Reset buttons
         self.unhighlight_button = tk.Button(self.control_frame, text="Unhighlight Path", command=self.unhighlight_path)
@@ -40,18 +55,35 @@ class GraphApp:
         if self.selecting_nodes:
             self.select_node(event)
         else:
-            self.add_node(event)
+            self.is_dragging = False
+            self.start_x = event.x
+            self.start_y = event.y
+            self.drag_start_time = time.time()
+
+            # Check if user clicked an existing node
+            for node_id, (x, y) in self.nodes.items():
+                if abs(event.x - x) < 15 and abs(event.y - y) < 15:
+                    self.start_drag(event, node_id)
+                    return  # don't add a new node
+
+            # If no node was clicked, add a new node
+            self.root.after(150, lambda: self.add_node(event))
 
     # Add node where left mouse is pressed
     def add_node(self, event):
         if self.selecting_nodes:
             return
         
+        if self.is_dragging:
+            self.is_dragging = False
+            return
+            
         node_id = len(self.nodes) + 1
         self.nodes[node_id] = (event.x, event.y)
         self.graph.add_node(node_id)
-        self.canvas.create_oval(event.x-10, event.y-10, event.x+10, event.y+10, fill="medium blue", tags=f"node{node_id}")
-        self.canvas.create_text(event.x, event.y, text=str(node_id), fill="white", font=("Arial", 12))
+        node = self.canvas.create_oval(event.x-10, event.y-10, event.x+10, event.y+10, fill="medium blue", tags=f"node{node_id}")
+        self.canvas.create_text(event.x, event.y, text=str(node_id), fill="white", font=("Arial", 12), tags=(f"label{node_id}", "label"))
+        self.make_draggable(node_id)
 
     # Add edge between 2 nodes when right mouse is pressed
     def add_edge(self, event):
@@ -77,7 +109,7 @@ class GraphApp:
             # Draw the edge
             x1, y1 = self.nodes[self.selected_node]
             x2, y2 = self.nodes[clicked_node]
-            self.canvas.create_line(x1, y1, x2, y2, fill="red4", tags="edge")
+            self.canvas.create_line(x1, y1, x2, y2, fill="red4", tags=(f"edge{self.selected_node}-{clicked_node}", "edge"))
 
         # Reset the selected node
         self.selected_node = None
@@ -151,11 +183,53 @@ class GraphApp:
         self.edges = [] 
         self.graph.clear_edges()
 
+    # Removes all nodes and edges from graph
     def clear_all(self):
         self.canvas.delete("all") 
         self.nodes = {}
         self.edges = []
         self.graph.clear()
+
+    # Makes node draggable
+    def make_draggable(self, node_id):
+        self.canvas.tag_bind(f"node{node_id}", "<ButtonPress-1>", lambda event, n=node_id: self.start_drag(event, n))
+        self.canvas.tag_bind(f"node{node_id}", "<B1-Motion>", lambda event, n=node_id: self.drag_node(event, n))
+
+    # Starts dragging a node
+    def start_drag(self, event, node_id):
+        self.dragging_node = node_id
+        self.start_x = event.x
+        self.start_y = event.y
+        self.drag_start_time = time.time()  # Record when the drag starts
+        self.is_dragging = False
+    
+
+    def handle_drag(self, event):
+        if self.dragging_node is None:
+            return
+
+        dx = abs(event.x - self.start_x)
+        dy = abs(event.y - self.start_y)
+
+        # Check if movement is significant
+        if dx > 5 or dy > 5:
+            self.is_dragging = True
+
+        # Move the node
+        self.nodes[self.dragging_node] = (event.x, event.y)
+        self.canvas.coords(f"node{self.dragging_node}", event.x-10, event.y-10, event.x+10, event.y+10)
+        self.canvas.coords(f"label{self.dragging_node}", event.x, event.y)
+
+        # Update all connected edges
+        for neighbor in self.graph.neighbors(self.dragging_node):
+            x1, y1 = self.nodes[self.dragging_node]
+            x2, y2 = self.nodes[neighbor]
+
+            edge_tag = f"edge{self.dragging_node}-{neighbor}" if self.canvas.find_withtag(f"edge{self.dragging_node}-{neighbor}") else f"edge{neighbor}-{self.dragging_node}"
+            self.canvas.coords(edge_tag, x1, y1, x2, y2)
+
+            #weight_tag = f"weight{self.dragging_node}-{neighbor}" if self.canvas.find_withtag(f"weight{self.dragging_node}-{neighbor}") else f"weight{neighbor}-{self.dragging_node}"
+            #self.canvas.coords(weight_tag, (x1 + x2) / 2, (y1 + y2) / 2)
 
 
 
