@@ -35,3 +35,28 @@ def dijkstra(graph, start_node, target_node):
         path.insert(0, start_node)
 
     return path, distances.get(target_node, float('inf'))
+
+# Finds minimum spanning tree
+def find_mst(graph):
+    return nx.minimum_spanning_tree(graph)
+
+# Finds proper vertex colouring
+def find_vertex_coloring(graph):
+    return nx.coloring.greedy_color(graph, strategy="largest_first")
+
+# Finds Euler tour
+def find_eulerian_tour(graph):
+    if not nx.is_eulerian(graph):
+        return None  # No Eulerian tour exists
+    return list(nx.eulerian_circuit(graph))
+
+# Finds a Hamilton cycle using TSP heuristic
+def find_hamiltonian_cycle(graph):
+    cycle = nx.approximation.traveling_salesman_problem(graph, cycle=True)
+    if len(set(cycle)) < len(graph.nodes):  # if not all nodes are visited
+        return None  # then no Hamiltonian cycle exists
+    return cycle
+
+# Finds maximum matching
+def find_maximum_matching(graph):
+    return nx.max_weight_matching(graph, maxcardinality=True)

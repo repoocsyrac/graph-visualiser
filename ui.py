@@ -2,6 +2,13 @@ import tkinter as tk
 import networkx as nx
 from algorithms import dijkstra
 import time
+import random
+from tkinter import messagebox
+from algorithms import find_eulerian_tour
+from algorithms import find_hamiltonian_cycle
+from algorithms import find_maximum_matching
+from algorithms import find_mst
+from algorithms import find_vertex_coloring
 
 class GraphApp:
     def __init__(self, root):
@@ -32,13 +39,13 @@ class GraphApp:
         self.control_frame.pack(side=tk.BOTTOM, fill="both", expand=True)
         self.select_nodes_button = tk.Button(self.control_frame, text="Run Dijkstra", command=self.toggle_select_mode)
         self.select_nodes_button.pack(side=tk.LEFT)
-        self.mst_button = tk.Button(self.control_frame, text="Find Minimum Spanning Tree")
+        self.mst_button = tk.Button(self.control_frame, text="Find Minimum Spanning Tree", command=self.visualise_mst)
         self.mst_button.pack(side=tk.LEFT)
-        self.euler_button = tk.Button(self.control_frame, text="Find Euler Tour")
+        self.euler_button = tk.Button(self.control_frame, text="Find Euler Tour", command=self.visualise_eulerian_tour)
         self.euler_button.pack(side=tk.LEFT)
-        self.hamilton_button = tk.Button(self.control_frame, text="Find Hamilton Cycle")
+        self.hamilton_button = tk.Button(self.control_frame, text="Find Hamilton Cycle", command=self.visualise_hamiltonian_cycle)
         self.hamilton_button.pack(side=tk.LEFT)
-        self.colouring_button = tk.Button(self.control_frame, text="Find Proper Colouring")
+        self.colouring_button = tk.Button(self.control_frame, text="Find Proper Colouring", command=self.visualise_vertex_coloring)
         self.colouring_button.pack(side=tk.LEFT)
 
         # Reset buttons
@@ -50,6 +57,16 @@ class GraphApp:
 
         self.clear_all_button = tk.Button(self.control_frame, text="Delete All Nodes & Edges", command=self.clear_all)
         self.clear_all_button.pack(side=tk.RIGHT)
+
+        # Predefined graph buttons
+        self.complete_graph_btn = tk.Button(self.control_frame, text="Complete Graph (Kn)", command=lambda: self.create_complete_graph(5))
+        self.complete_graph_btn.pack(side=tk.LEFT)
+
+        #self.grid_graph_btn = tk.Button(self.control_frame, text="Grid Graph (3x3)", command=lambda: self.create_grid_graph(3, 3))
+        #self.grid_graph_btn.pack(side=tk.LEFT)
+
+        #self.cycle_graph_btn = tk.Button(self.control_frame, text="Cycle Graph (Cn)", command=lambda: self.create_cycle_graph(6))
+        #self.cycle_graph_btn.pack(side=tk.LEFT)
 
     def left_click(self, event):
         if self.selecting_nodes:
@@ -126,7 +143,7 @@ class GraphApp:
         path, distance = dijkstra(self.graph, start_node, target_node)
 
         if not path:
-            print(f"No path found from {start_node} to {target_node}")
+            self.show_error("No path exists between these nodes!")
             return
 
         print(f"Shortest path from {start_node} to {target_node}: {path} (Distance: {distance})")
@@ -232,5 +249,73 @@ class GraphApp:
             #self.canvas.coords(weight_tag, (x1 + x2) / 2, (y1 + y2) / 2)
 
 
+    def create_complete_graph(self, n):
+        self.clear_all()
 
-    
+        # Randomly distribute nodes
+        for i in range(n):
+            x, y = random.randint(100, 700), random.randint(100, 400)
+            self.nodes[i+1] = (x, y)
+            self.graph.add_node(i+1)
+            self.canvas.create_oval(x-10, y-10, x+10, y+10, fill="medium blue", tags=f"node{i+1}")
+            self.canvas.create_text(x, y, text=str(i+1), fill="white", font=("Arial", 12), tags=(f"label{i+1}", "label"))
+
+        # Connect all nodes
+        for i in self.nodes:
+            for j in self.nodes:
+                if i < j:
+                    #weight = random.randint(1, 10)  # Random weight
+                    #self.graph.add_edge(i, j, weight=weight)
+                    self.graph.add_edge(i, j)
+                    x1, y1 = self.nodes[i]
+                    x2, y2 = self.nodes[j]
+                    self.canvas.create_line(x1, y1, x2, y2, fill="black", tags=f"edge{i}-{j}")
+                    #self.canvas.create_text((x1+x2)/2, (y1+y2)/2, text=str(weight), font=("Arial", 10), tags=f"weight{i}-{j}")
+
+
+    def visualise_mst(self):
+        mst = find_mst(self.graph)
+        for u, v in mst.edges:
+            x1, y1 = self.nodes[u]
+            x2, y2 = self.nodes[v]
+            self.canvas.create_line(x1, y1, x2, y2, fill="SpringGreen2", width=2, tags=f"mst{u}-{v}")
+        
+    def visualise_vertex_coloring(self):
+        colors = find_vertex_coloring(self.graph)
+        color_palette = ["red", "blue", "green", "yellow", "orange", "purple"]
+
+        for node, color_index in colors.items():
+            self.canvas.itemconfig(f"node{node}", fill=color_palette[color_index % len(color_palette)])
+
+    def visualise_eulerian_tour(self):
+        tour = find_eulerian_tour(self.graph)
+        if tour is None:
+            self.show_error("No Eulerian Tour exists!")
+            return
+
+        for (u, v) in tour:
+            x1, y1 = self.nodes[u]
+            x2, y2 = self.nodes[v]
+            self.canvas.create_line(x1, y1, x2, y2, fill="orange", width=2, tags=f"eulerian{u}-{v}")
+
+    def visualise_hamiltonian_cycle(self):
+        cycle = find_hamiltonian_cycle(self.graph)
+        if cycle is None:
+            self.show_error("No Hamiltonian Cycle exists!")
+            return
+
+        for i in range(len(cycle) - 1):
+            x1, y1 = self.nodes[cycle[i]]
+            x2, y2 = self.nodes[cycle[i+1]]
+            self.canvas.create_line(x1, y1, x2, y2, fill="cyan", width=2, tags=f"hamiltonian{cycle[i]}-{cycle[i+1]}")
+
+    def visualise_maximum_matching(self):
+        matching = find_maximum_matching(self.graph)
+
+        for u, v in matching:
+            x1, y1 = self.nodes[u]
+            x2, y2 = self.nodes[v]
+            self.canvas.create_line(x1, y1, x2, y2, fill="pink", width=3, tags=f"matching{u}-{v}")
+
+    def show_error(self, message):
+        messagebox.showerror("Error", message)
